@@ -71,7 +71,7 @@ static bool g_mouseClickDown = false;    // is the mouse button pressed
 static bool g_mouseLClickButton, g_mouseRClickButton, g_mouseMClickButton;
 static int g_mouseClickX, g_mouseClickY; // coordinates for mouse click event
 static int g_activeShader = 1;
-static int g_objToManip = 1;  // object to manipulate 
+static int g_objToManip = 10;  // object to manipulate 
 
   // Animation globals for time-based animation
 static const float g_animStart = 0.0;
@@ -82,6 +82,7 @@ static int g_elapsedTime = 0;           // keeps track of how long it takes betw
 static float g_animIncrement = g_animSpeed/60.0; // updated by idle() based on GPU speed
 static string viewPoint = "s";
 static bool drawCurve = false;
+static const int g_numCPoints = 20;
 
 
 struct ShaderState {
@@ -216,18 +217,13 @@ static shared_ptr<Geometry> g_cube, g_sphere_cpoint, g_octa, g_tube, g_sphere_mo
 static const Cvec3 g_light1(2.0, 3.0, 14.0), g_light2(-2, -3.0, -5.0);  // define two light positions in world space
 static PiecewiseCurve p_curve;
 static Matrix4 g_eyeRbt = Matrix4::makeTranslation(Cvec3(0.0, 3.25, 10.0));
-static const int g_numObjects = 27 + 5; // 3 slabs of 9 cubes each.
-static Matrix4 g_objectRbt[g_numObjects] = {}; // each object gets its own RBT  
+static const int g_numObjects = 27; // 3 slabs of 9 cubes each.
+static Matrix4 g_objectRbt[g_numObjects] = {}; // each object in the scene (but not in the piecewise bezier curve gets its own g_objectRbt entry)
+static Matrix4 g_ctlPointRbt[g_numCPoints] = {};
+static Matrix4 g_movingObjectRbt;
 
-// static void initBezierPoints(int index) {
-//   g_objectRbt[index] = Matrix4::makeTranslation(curve.p0);
-//   g_objectRbt[index + 1] = Matrix4::makeTranslation(curve.p1);
-//   g_objectRbt[index + 2] = Matrix4::makeTranslation(curve.p2);
-//   g_objectRbt[index + 3] = Matrix4::makeTranslation(curve.p3);
-// }
 
 static void initPiecewiseCurve() {
-
   // -4, 1, -2
   Bezier c1 = Bezier(Cvec3(-6.0, 1.0, 0.0), Cvec3(-5.0, 1.0, 0.0), Cvec3(1.0, 2.0, -1.0), Cvec3(3.0, 2.0, -2.0));
   Bezier c2 = Bezier(Cvec3(3.0, 2.0, -2.0), Cvec3(5.0, 2.0, -3.0), Cvec3(6.0, 1.0, -1.0), Cvec3(6.0, 1.0, 0.0));
@@ -251,12 +247,66 @@ static void initTranslations(int y, int index) {
   }
 }
 
-static void initMovingObject(int index) {
-  g_objectRbt[index] = Matrix4::makeTranslation(p_curve.getPoint((double)-0.5));
+static void initMovingObject() {
+  g_movingObjectRbt = Matrix4::makeTranslation(p_curve.getPoint((double)-0.5));
 }
 
 
 ///////////////// END OF G L O B A L S //////////////////////////////////////////////////
+
+static void initControlPoints() {
+  g_ctlPointRbt[0] = Matrix4::makeTranslation(p_curve.c1.p0);
+  g_ctlPointRbt[1] = Matrix4::makeTranslation(p_curve.c1.p1);
+  g_ctlPointRbt[2] = Matrix4::makeTranslation(p_curve.c1.p2);
+  g_ctlPointRbt[3] = Matrix4::makeTranslation(p_curve.c1.p3);
+
+  g_ctlPointRbt[4] = Matrix4::makeTranslation(p_curve.c2.p0);
+  g_ctlPointRbt[5] = Matrix4::makeTranslation(p_curve.c2.p1);
+  g_ctlPointRbt[6] = Matrix4::makeTranslation(p_curve.c2.p2);
+  g_ctlPointRbt[7] = Matrix4::makeTranslation(p_curve.c2.p3);
+
+  g_ctlPointRbt[8] = Matrix4::makeTranslation(p_curve.c3.p0);
+  g_ctlPointRbt[9] = Matrix4::makeTranslation(p_curve.c3.p1);
+  g_ctlPointRbt[10] = Matrix4::makeTranslation(p_curve.c3.p2);
+  g_ctlPointRbt[11] = Matrix4::makeTranslation(p_curve.c3.p3);
+
+  g_ctlPointRbt[12] = Matrix4::makeTranslation(p_curve.c4.p0);
+  g_ctlPointRbt[13] = Matrix4::makeTranslation(p_curve.c4.p1);
+  g_ctlPointRbt[14] = Matrix4::makeTranslation(p_curve.c4.p2);
+  g_ctlPointRbt[15] = Matrix4::makeTranslation(p_curve.c4.p3);
+
+  g_ctlPointRbt[16] = Matrix4::makeTranslation(p_curve.c5.p0);
+  g_ctlPointRbt[17] = Matrix4::makeTranslation(p_curve.c5.p1);
+  g_ctlPointRbt[18] = Matrix4::makeTranslation(p_curve.c5.p2);
+  g_ctlPointRbt[19] = Matrix4::makeTranslation(p_curve.c5.p3);
+}
+
+static void syncControlPoints() {
+  p_curve.c1.p0 = Cvec3(g_ctlPointRbt[0](0, 3), g_ctlPointRbt[0](1, 3), g_ctlPointRbt[0](2, 3));
+  p_curve.c1.p1 = Cvec3(g_ctlPointRbt[1](0, 3), g_ctlPointRbt[1](1, 3), g_ctlPointRbt[1](2, 3));
+  p_curve.c1.p2 = Cvec3(g_ctlPointRbt[2](0, 3), g_ctlPointRbt[2](1, 3), g_ctlPointRbt[2](2, 3));
+  p_curve.c1.p3 = Cvec3(g_ctlPointRbt[3](0, 3), g_ctlPointRbt[3](1, 3), g_ctlPointRbt[3](2, 3));
+
+  p_curve.c2.p0 = Cvec3(g_ctlPointRbt[4](0, 3), g_ctlPointRbt[4](1, 3), g_ctlPointRbt[4](2, 3));
+  p_curve.c2.p1 = Cvec3(g_ctlPointRbt[5](0, 3), g_ctlPointRbt[5](1, 3), g_ctlPointRbt[5](2, 3));
+  p_curve.c2.p2 = Cvec3(g_ctlPointRbt[6](0, 3), g_ctlPointRbt[6](1, 3), g_ctlPointRbt[6](2, 3));
+  p_curve.c2.p3 = Cvec3(g_ctlPointRbt[7](0, 3), g_ctlPointRbt[7](1, 3), g_ctlPointRbt[7](2, 3));
+
+  p_curve.c3.p0 = Cvec3(g_ctlPointRbt[8](0, 3), g_ctlPointRbt[8](1, 3), g_ctlPointRbt[8](2, 3));
+  p_curve.c3.p1 = Cvec3(g_ctlPointRbt[9](0, 3), g_ctlPointRbt[9](1, 3), g_ctlPointRbt[9](2, 3));
+  p_curve.c3.p2 = Cvec3(g_ctlPointRbt[10](0, 3), g_ctlPointRbt[10](1, 3), g_ctlPointRbt[10](2, 3));
+  p_curve.c3.p3 = Cvec3(g_ctlPointRbt[11](0, 3), g_ctlPointRbt[11](1, 3), g_ctlPointRbt[11](2, 3));
+
+  p_curve.c4.p0 = Cvec3(g_ctlPointRbt[12](0, 3), g_ctlPointRbt[12](1, 3), g_ctlPointRbt[12](2, 3));
+  p_curve.c4.p1 = Cvec3(g_ctlPointRbt[13](0, 3), g_ctlPointRbt[13](1, 3), g_ctlPointRbt[13](2, 3));
+  p_curve.c4.p2 = Cvec3(g_ctlPointRbt[14](0, 3), g_ctlPointRbt[14](1, 3), g_ctlPointRbt[14](2, 3));
+  p_curve.c4.p3 = Cvec3(g_ctlPointRbt[15](0, 3), g_ctlPointRbt[15](1, 3), g_ctlPointRbt[15](2, 3));
+
+  p_curve.c5.p0 = Cvec3(g_ctlPointRbt[16](0, 3), g_ctlPointRbt[16](1, 3), g_ctlPointRbt[16](2, 3));
+  p_curve.c5.p1 = Cvec3(g_ctlPointRbt[17](0, 3), g_ctlPointRbt[17](1, 3), g_ctlPointRbt[17](2, 3));
+  p_curve.c5.p2 = Cvec3(g_ctlPointRbt[18](0, 3), g_ctlPointRbt[18](1, 3), g_ctlPointRbt[18](2, 3));
+  p_curve.c5.p3 = Cvec3(g_ctlPointRbt[19](0, 3), g_ctlPointRbt[19](1, 3), g_ctlPointRbt[19](2, 3));
+}
 
 static void initObjects() {
   // each kind of geometry needs to be initialized here
@@ -348,7 +398,7 @@ static void drawScene() {
   Matrix4 invEyeRbt = inv(g_eyeRbt);
 
   if (viewPoint == "m")
-    invEyeRbt = inv(g_objectRbt[0]);
+    invEyeRbt = inv(g_movingObjectRbt);
   
   const Cvec3 eyeLight1 = Cvec3(invEyeRbt * Cvec4(g_light1, 1)); // g_light1 position in eye coordinates
   const Cvec3 eyeLight2 = Cvec3(invEyeRbt * Cvec4(g_light2, 1)); // g_light2 position in eye coordinates
@@ -368,9 +418,10 @@ static void drawScene() {
   safe_glUniform3f(curSS.h_uLight, eyeLight1[0], eyeLight1[1], eyeLight1[2]); // shaders need light positions
   safe_glUniform3f(curSS.h_uLight2, eyeLight2[0], eyeLight2[1], eyeLight2[2]);
 
+  
 
   // draw the bezier curve itself using spheres
-  int num_curve_spheres = 50;
+  int num_curve_spheres = 100;
   for (int i = 0; i < num_curve_spheres && drawCurve; ++i) {
     Matrix4 MVM = invEyeRbt * Matrix4::makeTranslation(p_curve.getPoint((float)i / (float)num_curve_spheres));
     Matrix4 NMVM = normalMatrix(MVM);
@@ -379,36 +430,42 @@ static void drawScene() {
   }
 
 
-  for (int i = 0; i < g_numObjects; i++) {
+  // Drawing control points as little spheres
+  for (int i = 0; i < g_numCPoints; ++i) {
+    Matrix4 MVM = invEyeRbt * g_ctlPointRbt[i];
+    Matrix4 NMVM = normalMatrix(MVM);
+    sendModelViewNormalMatrix(curSS, MVM, NMVM);
+
+    if (i == g_objToManip) {
+      safe_glUniform3f(curSS.h_uColor, 1.0, 1.0, 1.0); 
+    }
+    else {
+      safe_glUniform3f(curSS.h_uColor, 1.0, 1.0, 0.0);
+    }
+
+    g_sphere_cpoint->draw(curSS);
+  }
+
+  // Draws octahedrons in scene (supposed to be interesting)
+  for (int i = 0; i < g_numObjects; ++i) {
     Matrix4 MVM = invEyeRbt * g_objectRbt[i];
     Matrix4 NMVM = normalMatrix(MVM);
     sendModelViewNormalMatrix(curSS, MVM, NMVM);
 
-    if (g_objToManip == i) {
-      safe_glUniform3f(curSS.h_uColor, 1.0, 0.0, 1.0); // use clock parameter to color object
-    }
-    else if (i >= 1 && i < 5) {
-      safe_glUniform3f(curSS.h_uColor, 1.0, 1.0, 0.0); // use clock parameter to color object
-    }
-    else if (i == 0) {
-      safe_glUniform3f(curSS.h_uColor, 1.0-g_animClock, 0.0, g_animClock); // use clock parameter to color object
-    }
-    else {
-      safe_glUniform3f(curSS.h_uColor, (i % 2), (i + 1) % 2, (i + 1) % 3); // use clock parameter to color object
-    }
+    safe_glUniform3f(curSS.h_uColor, (i % 2), (i + 1) % 2, (i + 1) % 3); 
 
-    if (i == 0) {
-      g_objectRbt[0] = Matrix4::makeTranslation(p_curve.getPoint(1 - g_animClock));
-      if (viewPoint == "s") {
-	g_sphere_moving->draw(curSS);
-      }
-    }
-    if (i < 5 && i >= 1) {
-      g_sphere_cpoint->draw(curSS);
-    }
-    if (i >= 5 && i < g_numObjects ) {
-      g_octa->draw(curSS);
-    }
+    g_octa->draw(curSS);
+  }
+
+  g_movingObjectRbt = Matrix4::makeTranslation(p_curve.getPoint(1 - g_animClock));
+
+  // Draws the object moving along the curve
+  if (viewPoint == "s") { // for stationary
+    Matrix4 MVM = invEyeRbt * g_movingObjectRbt;
+    Matrix4 NMVM = normalMatrix(MVM);
+    sendModelViewNormalMatrix(curSS, MVM, NMVM);
+    safe_glUniform3f(curSS.h_uColor, g_animClock - 1, 1.0, 0.0);
+    g_sphere_moving->draw(curSS);
   }
   // TODO: Remove cube. Add octahedron, tube, and sphere to scene and make them chase each other.
 }
@@ -467,22 +524,42 @@ static void motion(const int x, const int y) {
   }
 
   if (g_mouseClickDown) {
-	  a =  transFact(g_objectRbt[g_objToManip])*linFact(g_eyeRbt);
-	  g_objectRbt[g_objToManip] = a * m * inv(a) * g_objectRbt[g_objToManip];
-	  if (g_objToManip <= 4 && g_objToManip > 0) {
-	    // if (g_objToManip == 1) {
-	    //   curve.p0 = Cvec3(g_objectRbt[g_objToManip](0, 3), g_objectRbt[g_objToManip](1, 3), g_objectRbt[g_objToManip](2, 3));
-	    // }
-	    // else if (g_objToManip == 2) {
-	    //   curve.p1 = Cvec3(g_objectRbt[g_objToManip](0, 3), g_objectRbt[g_objToManip](1, 3), g_objectRbt[g_objToManip](2, 3));
-	    // }
-	    // else if (g_objToManip == 3) {
-	    //   curve.p2 = Cvec3(g_objectRbt[g_objToManip](0, 3), g_objectRbt[g_objToManip](1, 3), g_objectRbt[g_objToManip](2, 3));
-	    // }
-	    // else if (g_objToManip == 4) {
-	    //   curve.p3 = Cvec3(g_objectRbt[g_objToManip](0, 3), g_objectRbt[g_objToManip](1, 3), g_objectRbt[g_objToManip](2, 3));
-	    // }
+	  a =  transFact(g_ctlPointRbt[g_objToManip])*linFact(g_eyeRbt);
+	  g_ctlPointRbt[g_objToManip] = a * m * inv(a) * g_ctlPointRbt[g_objToManip];
+
+
+	  if (g_objToManip == 3) {
+	    g_ctlPointRbt[4] = a * m * inv(a) * g_ctlPointRbt[4];
 	  }
+	  else if (g_objToManip == 4) {
+	    g_ctlPointRbt[3] = a * m * inv(a) * g_ctlPointRbt[3];
+	  }
+	  else if (g_objToManip == 7) {
+	    g_ctlPointRbt[8] = a * m * inv(a) * g_ctlPointRbt[8];
+	  }
+	  else if (g_objToManip == 8) {
+	    g_ctlPointRbt[7] = a * m * inv(a) * g_ctlPointRbt[7];
+	  }
+	  else if (g_objToManip == 11) {
+	    g_ctlPointRbt[12] = a * m * inv(a) * g_ctlPointRbt[12];
+	  }
+	  else if (g_objToManip == 12) {
+	    g_ctlPointRbt[11] = a * m * inv(a) * g_ctlPointRbt[11];
+	  }
+	  else if (g_objToManip == 15) {
+	    g_ctlPointRbt[16] = a * m * inv(a) * g_ctlPointRbt[16];
+	  }
+	  else if (g_objToManip == 16) {
+	    g_ctlPointRbt[15] = a * m * inv(a) * g_ctlPointRbt[15];
+	  }
+	  else if (g_objToManip == 19) {
+	    g_ctlPointRbt[0] = a * m * inv(a) * g_ctlPointRbt[0];
+	  }
+	  else if (g_objToManip == 0) {
+	    g_ctlPointRbt[19] = a * m * inv(a) * g_ctlPointRbt[19];
+	  }
+	  
+	  syncControlPoints();
 	  glutPostRedisplay(); // we always redraw if we changed the scene
   }
 
@@ -538,7 +615,7 @@ static void keyboard(const unsigned char key, const int x, const int y) {
     cout << "Screenshot written to out.ppm." << endl;
     break;
   case 'o':
-    g_objToManip = (g_objToManip + 1) % 5;
+    g_objToManip = (g_objToManip + 1) % g_numCPoints;
     break;
   case '+':
     g_animSpeed *= 1.05;
@@ -622,12 +699,12 @@ int main(int argc, char * argv[]) {
     else if (g_Gl2Compatible && !GLEW_VERSION_2_0)
       throw runtime_error("Error: card/driver does not support OpenGL Shading Language v1.0");
 
-    initMovingObject(0);
-    // initBezierPoints(1);
+    initMovingObject();
     initPiecewiseCurve();
-    initTranslations(1, 5);
-    initTranslations(3, 14);
-    initTranslations(5, 23);
+    initControlPoints();
+    initTranslations(1, 0);
+    initTranslations(3, 9);
+    initTranslations(5, 18);
 
 
     initGLState();
