@@ -12,9 +12,6 @@
 //   Some code is from  _Foundations of 3D Computer Graphics_
 //   by Steven Gortler.  See AUTHORS file for more details.
 //
-//
-//   
-//   
 ////////////////////////////////////////////////////////////////////////
 
 #include <vector>
@@ -38,6 +35,7 @@
 #include "ppm.h"
 #include "glsupport.h"
 #include "bezier.h"
+#include "piecewise_curve.h"
 
 using namespace std; // for string, vector, iostream, and other standard C++ stuff
 using namespace tr1; // for shared_ptr
@@ -216,19 +214,28 @@ static shared_ptr<Geometry> g_cube, g_sphere_cpoint, g_octa, g_tube, g_sphere_mo
 // --------- Scene
 
 static const Cvec3 g_light1(2.0, 3.0, 14.0), g_light2(-2, -3.0, -5.0);  // define two light positions in world space
+static PiecewiseCurve p_curve;
 static Matrix4 g_eyeRbt = Matrix4::makeTranslation(Cvec3(0.0, 3.25, 10.0));
 static const int g_numObjects = 27 + 5; // 3 slabs of 9 cubes each.
 static Matrix4 g_objectRbt[g_numObjects] = {}; // each object gets its own RBT  
 
-static Bezier curve = Bezier(Cvec3(1, 3, 0), Cvec3(2, 2, 2), Cvec3(2, 2, 4), Cvec3(3, 1, 5));
+// static void initBezierPoints(int index) {
+//   g_objectRbt[index] = Matrix4::makeTranslation(curve.p0);
+//   g_objectRbt[index + 1] = Matrix4::makeTranslation(curve.p1);
+//   g_objectRbt[index + 2] = Matrix4::makeTranslation(curve.p2);
+//   g_objectRbt[index + 3] = Matrix4::makeTranslation(curve.p3);
+// }
 
-static void initBezierPoints(int index) {
-  g_objectRbt[index] = Matrix4::makeTranslation(curve.p0);
-  g_objectRbt[index + 1] = Matrix4::makeTranslation(curve.p1);
-  g_objectRbt[index + 2] = Matrix4::makeTranslation(curve.p2);
-  g_objectRbt[index + 3] = Matrix4::makeTranslation(curve.p3);
+static void initPiecewiseCurve() {
+
+  // -4, 1, -2
+  Bezier c1 = Bezier(Cvec3(-6.0, 1.0, 0.0), Cvec3(-5.0, 1.0, 0.0), Cvec3(1.0, 2.0, -1.0), Cvec3(3.0, 2.0, -2.0));
+  Bezier c2 = Bezier(Cvec3(3.0, 2.0, -2.0), Cvec3(5.0, 2.0, -3.0), Cvec3(6.0, 1.0, -1.0), Cvec3(6.0, 1.0, 0.0));
+  Bezier c3 = Bezier(Cvec3(6.0, 1.0, 0.0), Cvec3(6.0, 1.0, 1.0), Cvec3(4.0, 0.0, 1.0), Cvec3(2.0, 0.0, 2.0));
+  Bezier c4 = Bezier(Cvec3(2.0, 0.0, 2.0), Cvec3(0.0, 0.0, 3.0), Cvec3(-5.0, 1.0, -1.0), Cvec3(-6.0, 1.0, 0.0));
+  Bezier c5 = Bezier(Cvec3(-6.0, 1.0, 0.0), Cvec3(-7.0, 1.0, 1.0), Cvec3(-7.0, 1.0, 0.0), Cvec3(-6.0, 1.0, 0.0));
+  p_curve = PiecewiseCurve(c1, c2, c3, c4, c5);
 }
-
 
 static void initTranslations(int y, int index) {
   for (int i = 0; i < 9; i++) {
@@ -245,7 +252,7 @@ static void initTranslations(int y, int index) {
 }
 
 static void initMovingObject(int index) {
-  g_objectRbt[index] = Matrix4::makeTranslation(curve.getPoint((double)-0.5));
+  g_objectRbt[index] = Matrix4::makeTranslation(p_curve.getPoint((double)-0.5));
 }
 
 
@@ -264,9 +271,12 @@ static void initObjects() {
   g_cube.reset(new Geometry(&vtx[0], &idx[0], vbLen, ibLen));
 
   getSphereVbIbLen(30, 20, vbLen, ibLen);
+
   vtx.resize(vbLen);
   idx.resize(ibLen);
-  makeSphere(0.5, 30, 20, vtx.begin(), idx.begin());
+
+
+  makeSphere(0.6, 30, 20, vtx.begin(), idx.begin());
   g_sphere_moving.reset(new Geometry(&vtx[0], &idx[0], vbLen, ibLen));
 
 
@@ -360,9 +370,9 @@ static void drawScene() {
 
 
   // draw the bezier curve itself using spheres
-  int num_curve_spheres = 600;
+  int num_curve_spheres = 50;
   for (int i = 0; i < num_curve_spheres && drawCurve; ++i) {
-    Matrix4 MVM = invEyeRbt * Matrix4::makeTranslation(curve.getPoint((float)i / (float)num_curve_spheres));
+    Matrix4 MVM = invEyeRbt * Matrix4::makeTranslation(p_curve.getPoint((float)i / (float)num_curve_spheres));
     Matrix4 NMVM = normalMatrix(MVM);
     sendModelViewNormalMatrix(curSS, MVM, NMVM);
     g_sphere_curve->draw(curSS);
@@ -388,7 +398,7 @@ static void drawScene() {
     }
 
     if (i == 0) {
-      g_objectRbt[0] = Matrix4::makeTranslation(curve.getPoint(1 - g_animClock));
+      g_objectRbt[0] = Matrix4::makeTranslation(p_curve.getPoint(1 - g_animClock));
       if (viewPoint == "s") {
 	g_sphere_moving->draw(curSS);
       }
@@ -460,18 +470,18 @@ static void motion(const int x, const int y) {
 	  a =  transFact(g_objectRbt[g_objToManip])*linFact(g_eyeRbt);
 	  g_objectRbt[g_objToManip] = a * m * inv(a) * g_objectRbt[g_objToManip];
 	  if (g_objToManip <= 4 && g_objToManip > 0) {
-	    if (g_objToManip == 1) {
-	      curve.p0 = Cvec3(g_objectRbt[g_objToManip](0, 3), g_objectRbt[g_objToManip](1, 3), g_objectRbt[g_objToManip](2, 3));
-	    }
-	    else if (g_objToManip == 2) {
-	      curve.p1 = Cvec3(g_objectRbt[g_objToManip](0, 3), g_objectRbt[g_objToManip](1, 3), g_objectRbt[g_objToManip](2, 3));
-	    }
-	    else if (g_objToManip == 3) {
-	      curve.p2 = Cvec3(g_objectRbt[g_objToManip](0, 3), g_objectRbt[g_objToManip](1, 3), g_objectRbt[g_objToManip](2, 3));
-	    }
-	    else if (g_objToManip == 4) {
-	      curve.p3 = Cvec3(g_objectRbt[g_objToManip](0, 3), g_objectRbt[g_objToManip](1, 3), g_objectRbt[g_objToManip](2, 3));
-	    }
+	    // if (g_objToManip == 1) {
+	    //   curve.p0 = Cvec3(g_objectRbt[g_objToManip](0, 3), g_objectRbt[g_objToManip](1, 3), g_objectRbt[g_objToManip](2, 3));
+	    // }
+	    // else if (g_objToManip == 2) {
+	    //   curve.p1 = Cvec3(g_objectRbt[g_objToManip](0, 3), g_objectRbt[g_objToManip](1, 3), g_objectRbt[g_objToManip](2, 3));
+	    // }
+	    // else if (g_objToManip == 3) {
+	    //   curve.p2 = Cvec3(g_objectRbt[g_objToManip](0, 3), g_objectRbt[g_objToManip](1, 3), g_objectRbt[g_objToManip](2, 3));
+	    // }
+	    // else if (g_objToManip == 4) {
+	    //   curve.p3 = Cvec3(g_objectRbt[g_objToManip](0, 3), g_objectRbt[g_objToManip](1, 3), g_objectRbt[g_objToManip](2, 3));
+	    // }
 	  }
 	  glutPostRedisplay(); // we always redraw if we changed the scene
   }
@@ -613,7 +623,8 @@ int main(int argc, char * argv[]) {
       throw runtime_error("Error: card/driver does not support OpenGL Shading Language v1.0");
 
     initMovingObject(0);
-    initBezierPoints(1);
+    // initBezierPoints(1);
+    initPiecewiseCurve();
     initTranslations(1, 5);
     initTranslations(3, 14);
     initTranslations(5, 23);
