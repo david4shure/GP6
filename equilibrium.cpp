@@ -306,7 +306,6 @@ static void syncControlPoints() {
   p_curve.c5.p1 = Cvec3(g_ctlPointRbt[17](0, 3), g_ctlPointRbt[17](1, 3), g_ctlPointRbt[17](2, 3));
   p_curve.c5.p2 = Cvec3(g_ctlPointRbt[18](0, 3), g_ctlPointRbt[18](1, 3), g_ctlPointRbt[18](2, 3));
   p_curve.c5.p3 = Cvec3(g_ctlPointRbt[19](0, 3), g_ctlPointRbt[19](1, 3), g_ctlPointRbt[19](2, 3));
-
 }
 
 static void initObjects() {
@@ -529,7 +528,6 @@ static void motion(const int x, const int y) {
 	  g_ctlPointRbt[g_objToManip] = a * m * inv(a) * g_ctlPointRbt[g_objToManip];
 
 
-	  cout << "motion called, g_objToManip = " << g_objToManip << endl;
 	  if (g_objToManip == 3) {
 	    g_ctlPointRbt[4] = a * m * inv(a) * g_ctlPointRbt[4];
 	  }
