@@ -12,6 +12,8 @@
 //   Some code is from  _Foundations of 3D Computer Graphics_
 //   by Steven Gortler.  See AUTHORS file for more details.
 //
+//
+//   Worked with: Kelly MacDonald
 ////////////////////////////////////////////////////////////////////////
 
 #include <vector>
@@ -424,7 +426,7 @@ static void drawScene() {
   
 
   // draw the bezier curve itself using spheres
-  int num_curve_spheres = 100;
+  int num_curve_spheres = 50;
   for (int i = 0; i < num_curve_spheres && drawCurve; ++i) {
     Matrix4 MVM = invEyeRbt * Matrix4::makeTranslation(p_curve.getPoint((float)i / (float)num_curve_spheres));
     Matrix4 NMVM = normalMatrix(MVM);
