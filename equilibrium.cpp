@@ -325,8 +325,11 @@ static void initObjects() {
   vtx.resize(vbLen);
   idx.resize(ibLen);
 
+  getSphereVbIbLen(60, 60, vbLen, ibLen);
+  vtx.resize(vbLen);
+  idx.resize(ibLen);
 
-  makeSphere(0.6, 30, 20, vtx.begin(), idx.begin());
+  makeSphere(0.1, 30, 20, vtx.begin(), idx.begin());
   g_sphere_moving.reset(new Geometry(&vtx[0], &idx[0], vbLen, ibLen));
 
 
@@ -337,7 +340,7 @@ static void initObjects() {
   g_sphere_cpoint.reset(new Geometry(&vtx[0], &idx[0], vbLen, ibLen));
 
   getSphereVbIbLen(30, 20, vbLen, ibLen);
-  vtx.resize(vbLen);
+  vtx.resize(vbLen);	
   idx.resize(ibLen);
   makeSphere(0.10, 30, 20, vtx.begin(), idx.begin());
   g_sphere_curve.reset(new Geometry(&vtx[0], &idx[0], vbLen, ibLen));
@@ -354,7 +357,7 @@ static void initObjects() {
   getTubeVbIbLen(36, vbLen, ibLen);
   vtx.resize(vbLen);
   idx.resize(ibLen);
-  makeTube(1, 4, 36, vtx.begin(), idx.begin());
+  makeTube(0.1, 2, 36, vtx.begin(), idx.begin());
   g_tube.reset(new Geometry(&vtx[0], &idx[0], vbLen, ibLen));
   
 }
@@ -462,11 +465,31 @@ static void drawScene() {
 
   // Draws the object moving along the curve
   if (viewPoint == "s") { // for stationary
-    Matrix4 MVM = invEyeRbt * g_movingObjectRbt;
+    Matrix4 MVM = invEyeRbt * g_movingObjectRbt * Matrix4::makeXRotation(90);
     Matrix4 NMVM = normalMatrix(MVM);
     sendModelViewNormalMatrix(curSS, MVM, NMVM);
     safe_glUniform3f(curSS.h_uColor, g_animClock - 1, 1.0, 0.0);
+    g_tube->draw(curSS);
+
+    MVM = invEyeRbt * g_movingObjectRbt;
+    NMVM = normalMatrix(MVM);
+    sendModelViewNormalMatrix(curSS, MVM, NMVM);
+    safe_glUniform3f(curSS.h_uColor, g_animClock - 1, 1.0, 0.0);
+    g_sphere_moving->draw(curSS);
+    
+    MVM = invEyeRbt * g_movingObjectRbt;
+    NMVM = normalMatrix(MVM);
+    sendModelViewNormalMatrix(curSS, MVM, NMVM);
+    safe_glUniform3f(curSS.h_uColor, g_animClock - 1, 1.0, 0.0);
     g_octa->draw(curSS);
+
+    MVM = invEyeRbt * g_movingObjectRbt * rotatorY;
+    NMVM = normalMatrix(MVM);
+    sendModelViewNormalMatrix(curSS, MVM, NMVM);
+    safe_glUniform3f(curSS.h_uColor, g_animClock - 1, 1.0, 0.0);
+    g_cube->draw(curSS);
+
+
   }
 
   // TODO: Remove cube. Add octahedron, tube, and sphere to scene and make them chase each other.
