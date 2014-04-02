@@ -48,5 +48,43 @@ class PiecewiseCurve {
     }
   }
 
+  Cvec3 cross(Cvec3 u, Cvec3 z) {
+    return Cvec3(((u[1] * z[2]) - (u[2] * z[1])), ((u[2] * z[0]) - (u[0] * z[3])), ((u[0] * z[1]) - (u[1] * z[0])));
+  }
+
+  Matrix4 lookAheadFrom(Cvec3 position, float t) {
+    float epsilon = 0.0001;
+    Cvec3 p = position;
+    Cvec3 q = this->getPoint(t + epsilon);
+    Cvec3 z = (p - q).normalize();
+    Cvec3 u = Cvec3(0, 1, 0);
+    Cvec3 x = cross(u, z).normalize();
+    Cvec3 y = cross(z, x).normalize();
+
+    Matrix4 matrixRep = Matrix4();
+    
+    matrixRep(0, 0) = x[0];
+    matrixRep(0, 1) = y[0];
+    matrixRep(0, 2) = z[0];
+    matrixRep(0, 3) = p[0];
+    
+    matrixRep(1, 0) = x[1];
+    matrixRep(1, 1) = y[1];
+    matrixRep(1, 2) = z[1];
+    matrixRep(1, 3) = p[1];
+    
+    matrixRep(2, 0) = x[2];
+    matrixRep(2, 1) = y[2];
+    matrixRep(2, 2) = z[2];
+    matrixRep(2, 3) = p[2];
+
+    matrixRep(3, 0) = 0;
+    matrixRep(3, 1) = 0;
+    matrixRep(3, 2) = 0;
+    matrixRep(3, 3) = 1;
+    
+    return matrixRep;
+  }
+
 };
 

@@ -286,7 +286,7 @@ static void syncControlPoints() {
   p_curve.c1.p1 = Cvec3(g_ctlPointRbt[1](0, 3), g_ctlPointRbt[1](1, 3), g_ctlPointRbt[1](2, 3));
   p_curve.c1.p2 = Cvec3(g_ctlPointRbt[2](0, 3), g_ctlPointRbt[2](1, 3), g_ctlPointRbt[2](2, 3));
   p_curve.c1.p3 = Cvec3(g_ctlPointRbt[3](0, 3), g_ctlPointRbt[3](1, 3), g_ctlPointRbt[3](2, 3));
-
+  
   p_curve.c2.p0 = Cvec3(g_ctlPointRbt[4](0, 3), g_ctlPointRbt[4](1, 3), g_ctlPointRbt[4](2, 3));
   p_curve.c2.p1 = Cvec3(g_ctlPointRbt[5](0, 3), g_ctlPointRbt[5](1, 3), g_ctlPointRbt[5](2, 3));
   p_curve.c2.p2 = Cvec3(g_ctlPointRbt[6](0, 3), g_ctlPointRbt[6](1, 3), g_ctlPointRbt[6](2, 3));
@@ -457,7 +457,8 @@ static void drawScene() {
     g_octa->draw(curSS);
   }
 
-  g_movingObjectRbt = Matrix4::makeTranslation(p_curve.getPoint(1 - g_animClock));
+  g_movingObjectRbt = Matrix4::makeTranslation(p_curve.getPoint(g_animClock));
+  g_movingObjectRbt = g_movingObjectRbt * linFact(p_curve.lookAheadFrom(Cvec3(g_movingObjectRbt(0, 3), g_movingObjectRbt(1, 3), g_movingObjectRbt(2, 3)), (g_animClock)));
 
   // Draws the object moving along the curve
   if (viewPoint == "s") { // for stationary
@@ -465,8 +466,9 @@ static void drawScene() {
     Matrix4 NMVM = normalMatrix(MVM);
     sendModelViewNormalMatrix(curSS, MVM, NMVM);
     safe_glUniform3f(curSS.h_uColor, g_animClock - 1, 1.0, 0.0);
-    g_sphere_moving->draw(curSS);
+    g_octa->draw(curSS);
   }
+
   // TODO: Remove cube. Add octahedron, tube, and sphere to scene and make them chase each other.
 }
 
